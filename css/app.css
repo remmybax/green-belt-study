@@ -713,6 +713,84 @@ mark { background: var(--color-data-soft); color: inherit; padding: 0 1px; }
 }
 .study-next > span:last-child { flex-shrink: 0; }
 
+/* ---------- in-depth readings ---------- */
+.read-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  margin: -4px 0 4px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.reading { margin-top: 8px; }
+.reading h4 { font-family: var(--font-ui); font-size: var(--text-lg); font-weight: 600; line-height: 1.25; margin: 36px 0 8px; }
+.reading h5 { font-family: var(--font-ui); font-size: var(--text-md); font-weight: 600; margin: 24px 0 6px; }
+.reading > h4:first-child { margin-top: 12px; }
+.reading pre {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  font-family: var(--font-ui);
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+
+.formula {
+  margin: 14px 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+  font-family: var(--font-read);
+  font-size: 1.12rem;
+  line-height: 1.7;
+  text-align: center;
+  overflow-x: auto;
+}
+
+/* Diagrams are inline SVG from the readings. Their parts use these classes so they follow the theme. */
+.diagram { margin: 18px 0 6px; }
+.diagram svg { display: block; width: 100%; max-width: 560px; height: auto; margin: 0 auto; overflow: visible; }
+.diagram + p { margin-top: 0; font-family: var(--font-ui); font-size: var(--text-sm); color: var(--color-text-muted); text-align: center; }
+.diagram .d-axis { stroke: var(--color-text-muted); stroke-width: 1.2; fill: none; }
+.diagram .d-grid { stroke: var(--color-grid); stroke-width: 1; fill: none; }
+.diagram .d-line { stroke: var(--color-data); stroke-width: 2.2; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.diagram .d-thin { stroke: var(--color-text); stroke-width: 1.2; fill: none; }
+.diagram .d-dash { stroke: var(--color-text-muted); stroke-width: 1.2; fill: none; stroke-dasharray: 4 3; }
+.diagram .d-limit { stroke: var(--color-limit); stroke-width: 1.6; fill: none; stroke-dasharray: 6 4; }
+.diagram .d-fill { fill: var(--color-data-soft); stroke: none; }
+.diagram .d-fill-limit { fill: var(--color-limit); opacity: 0.28; stroke: none; }
+.diagram .d-dot { fill: var(--color-data); stroke: var(--color-bg); stroke-width: 1.2; }
+.diagram .d-dot-limit { fill: var(--color-limit); stroke: var(--color-bg); stroke-width: 1.2; }
+.diagram .d-box { fill: var(--color-surface); stroke: var(--color-grid); stroke-width: 1.2; }
+.diagram .d-box-strong { fill: var(--color-data-soft); stroke: var(--color-data); stroke-width: 1.4; }
+.diagram .d-bar { fill: var(--color-data); }
+.diagram .d-bar-soft { fill: var(--color-data-soft); stroke: var(--color-data); stroke-width: 1; }
+.diagram text { font-family: var(--font-ui); font-size: 12px; fill: var(--color-text); }
+.diagram .d-small { font-size: 11px; }
+.diagram .d-muted { fill: var(--color-text-muted); }
+.diagram .d-strong { font-weight: 700; }
+.diagram .d-data-text { fill: var(--color-data); font-weight: 600; }
+.diagram .d-limit-text { fill: var(--color-limit); font-weight: 600; }
+
+.answers {
+  margin: 10px 0 4px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  background: var(--color-surface);
+}
+.answers summary {
+  display: flex;
+  align-items: center;
+  min-height: var(--tap);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--color-data);
+  cursor: pointer;
+}
+.answers[open] { padding-bottom: 8px; }
+
 /* ---------- settings, install, updates ---------- */
 .field { margin: 14px 0 0; }
 .field-label { margin: 0 0 6px; font-weight: 500; }

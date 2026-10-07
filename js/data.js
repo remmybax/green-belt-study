@@ -5,6 +5,7 @@ const categoryCache = {};
 let toolkitCache = null;
 let searchCache = null;
 const examCache = {};
+const readingCache = {};
 const itemIdCache = {};
 
 const RANDOM_EXAM = { id: 'random', title: 'Random practice exam', minutes: 180, passPercent: 70, count: 100 };
@@ -36,7 +37,18 @@ async function loadExam(id) {
   return examCache[id];
 }
 
-// Rows of [focus id, title, outline text, guide body], plain text.
+// { topic id: reading HTML } for one category; only topics that have a reading are present.
+async function loadReadings(cid) {
+  if (!readingCache[cid]) readingCache[cid] = await fetchJson(`data/read-${cid}.json`);
+  return readingCache[cid];
+}
+
+// Topic IDs that have an in-depth reading, in outline order.
+function readingTopicIds() {
+  return Object.keys(manifest.topics).filter((t) => manifest.topics[t].readMin).sort(byNaturalId);
+}
+
+// { focus: [[id, title, outline text, guide body]], readings: [[topic id, title, body]] }, plain text.
 async function loadSearchIndex() {
   if (!searchCache) searchCache = await fetchJson('data/search.json');
   return searchCache;

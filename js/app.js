@@ -124,6 +124,7 @@ async function viewFor(route) {
   if (section === 'outline' && !id) return outlineView();
   if (section === 'outline' && manifest.categories[id]) return outlineCategoryView(id);
   if (section === 'guide' && manifest.categories[id]) return guideView(id);
+  if (section === 'read' && manifest.topics[id] && manifest.topics[id].readMin) return readingView(id);
   if (section === 'practice') return practiceView();
   if ((section === 'qa' || section === 'wb') && manifest.categories[id]) {
     const scope = practiceScope(id, route.query);
@@ -343,8 +344,9 @@ function runChart() {
 
 function dashboardView() {
   const last = settings.lastRoute;
-  const lastCat = last && last.match(/^#\/guide\/(\d\.\d)/);
+  const lastCat = last && last.match(/^#\/(?:guide|read)\/(\d\.\d)/);
   const resume = lastCat && manifest.categories[lastCat[1]] ? lastCat[1] : null;
+  const lastTopic = last && last.match(/^#\/read\/(\d\.\d\.\d+)/);
   const qs = tally(allItemIds('q'), questionStatus);
   return {
     title: 'Green Belt Study',
@@ -359,7 +361,9 @@ function dashboardView() {
       backupReminder(),
       resume
         ? el('a', { class: 'continue', href: last },
-          el('div', {}, el('span', {}, 'Continue reading'), el('strong', {}, `${resume} ${manifest.categories[resume].title}`)),
+          el('div', {}, el('span', {}, 'Continue reading'), el('strong', {}, lastTopic && manifest.topics[lastTopic[1]]
+            ? `${lastTopic[1]} ${manifest.topics[lastTopic[1]].title}`
+            : `${resume} ${manifest.categories[resume].title}`)),
           el('span', { class: 'continue-go' }, 'Open'))
         : el('a', { class: 'continue', href: '#/outline' },
           el('div', {}, el('span', {}, 'Start studying'), el('strong', {}, 'Pick a focus point from the outline')),
@@ -418,7 +422,8 @@ function outlineCategoryView(cid) {
             el('h2', {}, `${tid} ${topic.title}`),
             el('p', { class: 'topic-meta' },
               el('span', {}, `Bloom level: ${bloomName(topic.bloom)}`),
-              el('span', {}, el('span', { 'data-count': tid }), ' studied'))),
+              el('span', {}, el('span', { 'data-count': tid }), ' studied')),
+            readLink(tid, `outline ${tid}`)),
           el('ul', { class: 'fp-list' }, topic.focus.map((fid) => {
             const fp = manifest.focus[fid];
             return el('li', { class: `fp-row${isDone(fid) ? ' done' : ''}`, id: `ol-${fid}`, 'data-fp-row': fid },
@@ -432,6 +437,13 @@ function outlineCategoryView(cid) {
       pager(cid, 'outline'),
     ],
   };
+}
+
+// Link from a topic heading to its in-depth reading, when one exists.
+function readLink(tid, backLabel) {
+  const min = manifest.topics[tid].readMin;
+  if (!min) return null;
+  return el('a', { class: 'read-link', href: `#/read/${tid}`, 'data-back': backLabel }, `Read the in-depth explanation (${min} min)`);
 }
 
 function focusPractice(cid, fid) {
@@ -475,7 +487,8 @@ async function guideView(cid) {
             el('h2', {}, `${tid} ${topic.title}`),
             el('p', { class: 'topic-meta' },
               el('span', {}, `Bloom target: ${bloomName(topic.bloom)}`),
-              el('span', {}, el('span', { 'data-count': tid }), ' studied'))),
+              el('span', {}, el('span', { 'data-count': tid }), ' studied')),
+            readLink(tid, `guide ${tid}`)),
           extra.examLens ? el('div', { class: 'lens' }, el('strong', {}, 'Exam lens. '), el('span', { html: extra.examLens })) : null,
           topic.focus.map((fid) => {
             const fp = manifest.focus[fid];
@@ -515,6 +528,44 @@ async function toolkitView() {
       el('div', { class: 'lens' },
         'Open the official IASSC Examination Reference Document from PeopleCert or your exam provider next to this page while you practice. It is not included in this app.'),
       el('div', { class: 'prose', html: tk.html }),
+    ],
+  };
+}
+
+async function readingView(tid) {
+  const topic = manifest.topics[tid];
+  const cid = topic.category;
+  const html = (await loadReadings(cid))[tid];
+  settings.lastRoute = location.hash;
+  saveSettings();
+  const order = readingTopicIds();
+  const prev = order[order.indexOf(tid) - 1];
+  const next = order[order.indexOf(tid) + 1];
+  const nq = itemIdsIn('q', tid).length;
+  const np = itemIdsIn('p', tid).length;
+  return {
+    title: `Reading ${tid}`,
+    tab: 'outline',
+    body: [
+      el('h1', { class: 'page-title' }, `${tid} ${topic.title}`),
+      el('p', { class: 'page-sub' }, `In-depth reading for ${cid} ${manifest.categories[cid].title}. About ${topic.readMin} minutes.`),
+      el('div', { class: 'jump' },
+        el('a', { href: `#/guide/${cid}?t=${tid}`, 'data-back': `reading ${tid}` }, 'Study guide'),
+        nq ? el('a', { href: `#/qa/${cid}?t=${tid}`, 'data-back': `reading ${tid}` }, `Questions (${nq})`) : null,
+        np ? el('a', { href: `#/wb/${cid}?t=${tid}`, 'data-back': `reading ${tid}` }, `Workbook (${np})`) : null),
+      el('article', { class: 'prose reading', html }),
+      el('h2', { class: 'section-title' }, 'Focus points in this topic'),
+      el('p', { class: 'muted small' }, 'Check off what you now understand. Tap one to open its study guide section.'),
+      el('ul', { class: 'fp-list' }, topic.focus.map((fid) => {
+        const fp = manifest.focus[fid];
+        return el('li', { class: `fp-row${isDone(fid) ? ' done' : ''}`, id: `rf-${fid}`, 'data-fp-row': fid },
+          focusCheck(fid),
+          el('a', { class: 'fp-link', href: `#/guide/${cid}?fp=${fid}`, 'data-back': `reading ${tid}` },
+            el('span', { class: 'fp-id' }, fid), ' ', tagBadge(fp.tag), ' ', el('span', { class: 'fp-text', html: fp.text })));
+      })),
+      el('nav', { class: 'pager', 'aria-label': 'Readings' },
+        prev ? el('a', { href: `#/read/${prev}` }, el('span', {}, 'Previous reading'), `${prev} ${manifest.topics[prev].title}`) : null,
+        next ? el('a', { class: 'next', href: `#/read/${next}` }, el('span', {}, 'Next reading'), `${next} ${manifest.topics[next].title}`) : null),
     ],
   };
 }
@@ -1192,17 +1243,11 @@ function snippet(text, terms) {
   return `${start ? '…' : ''}${text.slice(start, end)}${end < text.length ? '…' : ''}`;
 }
 
-function searchResults(index, q) {
-  if (!q) {
-    return el('p', { class: 'muted' }, `Type a word, a phrase, or an ID like 3.4.1. Searches the titles, outline lines and study guide text of all ${index.length} focus points.`);
-  }
-  const phrase = q.toLowerCase().replace(/\s+/g, ' ');
-  const words = phrase.split(' ');
-  // One-letter words ("paired t") match nearly everything, so drop them when longer words exist.
-  const longer = words.filter((t) => t.length > 1);
-  const terms = longer.length ? longer : words;
+// Scores rows of [id, title, middle text, body]: every term must appear somewhere (AND);
+// title hits weigh most, then the middle text, then the body; the whole phrase earns a bonus.
+function scoreRows(rows, phrase, words, terms) {
   const scored = [];
-  for (const row of index) {
+  for (const row of rows) {
     const lc = row.lc || (row.lc = [row[1].toLowerCase(), row[2].toLowerCase(), row[3].toLowerCase()]);
     let score = 0;
     let ok = true;
@@ -1222,19 +1267,45 @@ function searchResults(index, q) {
     }
     scored.push([score, row]);
   }
-  scored.sort((a, b) => b[0] - a[0] || byNaturalId(a[1][0], b[1][0]));
-  if (!scored.length) return el('p', { class: 'empty' }, 'No focus points match. Try fewer or shorter words.');
+  return scored.sort((a, b) => b[0] - a[0] || byNaturalId(a[1][0], b[1][0]));
+}
+
+function searchResults(index, q) {
+  if (!q) {
+    return el('p', { class: 'muted' }, `Type a word, a phrase, or an ID like 3.4.1. Searches the in-depth readings and the titles, outline lines and study guide text of all ${index.focus.length} focus points.`);
+  }
+  const phrase = q.toLowerCase().replace(/\s+/g, ' ');
+  const words = phrase.split(' ');
+  // One-letter words ("paired t") match nearly everything, so drop them when longer words exist.
+  const longer = words.filter((t) => t.length > 1);
+  const terms = longer.length ? longer : words;
+  const readingRows = index.readings.map((r) => r.row || (r.row = [r[0], r[1], '', r[2]]));
+  // Readings are long, so a reading that keeps returning to the phrase is the one that teaches it.
+  const mentions = (row) => Math.min(10, row.lc[2].split(phrase).length - 1);
+  const readHits = scoreRows(readingRows, phrase, words, terms)
+    .map(([score, row]) => [score + mentions(row), row])
+    .sort((a, b) => b[0] - a[0] || byNaturalId(a[1][0], b[1][0]))
+    .slice(0, 5);
+  const scored = scoreRows(index.focus, phrase, words, terms);
+  if (!scored.length && !readHits.length) return el('p', { class: 'empty' }, 'Nothing matches. Try fewer or shorter words.');
   const shown = scored.slice(0, 60);
   return [
-    el('p', { class: 'muted small' }, scored.length > shown.length
+    readHits.length ? el('h2', { class: 'section-title' }, 'In-depth readings') : null,
+    readHits.length ? el('div', { class: 'rows' }, readHits.map(([, [tid, title, , body]]) => el('a', {
+      class: 'search-hit', id: `sr-${tid}`, href: `#/read/${tid}`, 'data-back': 'search',
+    },
+    el('span', { class: 'search-title' }, el('span', { class: 'fp-id' }, tid), ' ', highlight(title, terms)),
+    el('span', { class: 'search-snippet' }, highlight(snippet(body, terms), terms))))) : null,
+    readHits.length && shown.length ? el('h2', { class: 'section-title' }, 'Focus points') : null,
+    shown.length ? el('p', { class: 'muted small' }, scored.length > shown.length
       ? `${scored.length} focus points match. Showing the best ${shown.length}.`
-      : `${plural(scored.length, 'focus point')} match.`),
-    el('div', { class: 'rows' }, shown.map(([, [id, title, text, body]]) => {
+      : `${plural(scored.length, 'focus point')} match.`) : null,
+    shown.length ? el('div', { class: 'rows' }, shown.map(([, [id, title, text, body]]) => {
       const source = body.toLowerCase().includes(terms[0]) ? body : text;
       return el('a', { class: 'search-hit', id: `sr-${id}`, href: `#/guide/${id.slice(0, 3)}?fp=${id}`, 'data-back': 'search' },
         el('span', { class: 'search-title' }, el('span', { class: 'fp-id' }, id), ' ', tagBadge(manifest.focus[id].tag), ' ', highlight(title, terms)),
         el('span', { class: 'search-snippet' }, highlight(snippet(source, terms), terms)));
-    })),
+    })) : null,
   ];
 }
 
